@@ -10,20 +10,27 @@ from .base import GitProvider
 class GitHubProvider(GitProvider):
     """GitHub provider implementation."""
     
-    def __init__(self, token: str, org_name: str, clone_dir: str = "temp_repos"):
+    def __init__(self, token: str, owner_name: str, clone_dir: str = "temp_repos"):
         self.client = Github(token)
-        self.org_name = org_name
-        self.org = self.client.get_organization(org_name)
+        self.owner_name = owner_name
         self.clone_dir = clone_dir
         self.token = token  # Store token for authentication
         os.makedirs(clone_dir, exist_ok=True)
+        
+        # Determine if owner is an organization or user
+        try:
+            self.owner = self.client.get_organization(owner_name)
+            self.is_org = True
+        except:
+            self.owner = self.client.get_user(owner_name)
+            self.is_org = False
     
     def get_repositories(self, sort: str = 'updated', direction: str = 'desc') -> List[Dict]:
         """Get list of repositories that contain Terraform files."""
         self.handle_rate_limit()
         
         # Search for repositories containing Terraform files
-        query = f'org:{self.org_name} language:hcl'
+        query = f'{"org" if self.is_org else "user"}:{self.owner_name} language:hcl'
         repos = self.client.search_repositories(query=query, sort=sort, order=direction)
         
         return [{
@@ -67,11 +74,11 @@ class GitHubProvider(GitProvider):
                 print("Required permissions: repo (Full control of private repositories)")
             return None
     
-    def get_commits(self, repo_path: str, start_date: datetime, end_date: datetime, branch: Optional[str] = None) -> List[Dict]:
+    def get_commits(self, repo_path: str, start_date: Optional[datetime], end_date: datetime, branch: Optional[str] = None) -> List[Dict]:
         """Get commits from a local repository within the specified date range using Git commands."""
         try:
             # Format dates for git log command
-            since_date = start_date.strftime("%Y-%m-%d")
+            since_date = start_date.strftime("%Y-%m-%d") if start_date else "1970-01-01"
             until_date = end_date.strftime("%Y-%m-%d")
             
             # Construct git log command
@@ -95,36 +102,39 @@ class GitHubProvider(GitProvider):
             # Process the output
             commits = []
             current_commit = None
+            current_files = []
             
             for line in result.stdout.splitlines():
-                if not line:
+                if not line.strip():
                     continue
                     
-                # Check if line is a commit header (starts with date)
-                if line[:10].replace('-', '').isdigit():
-                    # Parse commit header
-                    date_str, sha, *message_parts = line.split(' ', 2)
-                    message = message_parts[0] if message_parts else ''
+                # Check if this is a commit header (date, hash, message)
+                parts = line.split(' ', 2)
+                if len(parts) >= 3 and len(parts[1]) == 40:  # SHA-1 hash is 40 chars
+                    if current_commit:
+                        current_commit['files'] = current_files
+                        commits.append(current_commit)
+                        current_files = []
                     
-                    # Skip commits with [skip ci]
-                    if '[skip ci]' in message.lower():
-                        continue
-                        
                     current_commit = {
-                        'sha': sha,
-                        'date': datetime.strptime(date_str, '%Y-%m-%d'),
-                        'message': message,
-                        'files': []
+                        'date': datetime.strptime(parts[0], '%Y-%m-%d'),
+                        'sha': parts[1],
+                        'message': parts[2]
                     }
-                    commits.append(current_commit)
-                elif current_commit and line.strip():
-                    # Add file to current commit
-                    current_commit['files'].append(line.strip())
+                else:
+                    # This is a file name
+                    if current_commit and line.strip():
+                        current_files.append(line.strip())
+            
+            # Add the last commit
+            if current_commit:
+                current_commit['files'] = current_files
+                commits.append(current_commit)
             
             return commits
             
         except Exception as e:
-            print(f"Warning: Could not analyze commits in '{repo_path}': {str(e)}")
+            print(f"Error getting commits: {str(e)}")
             return []
     
     def handle_rate_limit(self) -> None:
