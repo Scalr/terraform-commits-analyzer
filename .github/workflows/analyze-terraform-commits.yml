@@ -37,8 +37,9 @@ jobs:
         GITHUB_OWNER: ${{ github.repository_owner }}
         GITHUB_BRANCH: ${{ inputs.branch }}
         ANALYSIS_DAYS: ${{ inputs.days }}
+        PYTHONPATH: ${{ github.workspace }}
       run: |
-        python tests/test_analysis.py
+        python src/main.py
         echo "=================================================="
         echo "Analysis Results:"
         echo "=================================================="

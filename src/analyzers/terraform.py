@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Optional
-from ..providers.base import GitProvider
+from src.providers.base import GitProvider
 
 class TerraformAnalyzer:
     """Analyzer for Terraform-related commits."""
