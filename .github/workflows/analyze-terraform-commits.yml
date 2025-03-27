@@ -1,0 +1,49 @@
+name: Analyze Terraform Commits
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to analyze (leave empty for all branches)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run analysis
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_ORG: ${{ github.repository_owner }}
+        GITHUB_BRANCH: ${{ inputs.branch }}
+      run: |
+        python tests/test_analysis.py
+        echo "=================================================="
+        echo "Analysis Results:"
+        echo "=================================================="
+        cat terraform_usage_report.json | jq -r '
+          "Total repositories analyzed: \(.repository_details | length)",
+          "Total Terraform commits: \(.total_commits)",
+          "Average monthly commits: \(.average_monthly_commits)",
+          "Predicted commits next month: \(.predictions.monthly)",
+          "Predicted commits next year: \(.predictions.annual)",
+          "\nMonthly Breakdown:",
+          (.monthly_breakdown | to_entries | .[] | "- \(.key): \(.value) commits"),
+          "\nPer-Repository Breakdown:",
+          (.repository_details | .[] | "- \(.name): \(.total_commits) commits")
+        '
