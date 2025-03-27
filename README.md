@@ -59,7 +59,7 @@ The analysis can be triggered manually from the Actions tab in your GitHub repos
 
 3. Run the analysis:
    ```bash
-   python tests/test_analysis.py
+   python src/main.py
    ```
 
 ## Report Format
@@ -125,7 +125,7 @@ The tool provides usage predictions based on historical commit data and several 
 3. Confidence Level
    - Based on data variance and sample size
    - Indicates prediction reliability
-   - Helps in decision making
+   - Helps in decision-making
 
 ### Prediction Limitations
 
@@ -171,8 +171,6 @@ Please use these predictions as a rough estimate and adjust based on your specif
 │   │   ├── terraform.py    # Terraform-specific analysis
 │   │   └── usage_predictor.py  # Usage prediction logic
 │   └── main.py            # Main script
-├── tests/
-│   └── test_analysis.py   # Test script for local development
 ├── requirements.txt       # Python dependencies
 ├── .gitignore           # Git ignore rules
 └── README.md           # This file
