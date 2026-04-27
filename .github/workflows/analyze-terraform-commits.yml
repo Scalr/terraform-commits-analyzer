@@ -39,7 +39,7 @@ jobs:
         ANALYSIS_DAYS: ${{ inputs.days }}
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        python src/main.py
+        python main.py
         echo "=================================================="
         echo "Analysis Results:"
         echo "=================================================="
